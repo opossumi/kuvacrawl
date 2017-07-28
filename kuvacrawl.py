@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 """
 Copyright (c) 2017 Erkka Saarela
 
@@ -154,7 +155,7 @@ class KuvaCrawler(object):
 
         try:
             olddata = load_jsonfile("FolderTree.json")
-        except FileNotFoundError as e:
+        except Exception as e:
             olddata = {}
         r = self.s.get(FOLDER_TREE)
         save("FolderTree.json", r.text.encode('utf-8'))
@@ -209,7 +210,7 @@ if __name__ == '__main__':
         DATA_DIR = args.path[0]
 
     if not isdir(DATA_DIR):
-        print ("ERROR: Data dir %s not found." % (DATA_DIR), file=sys.stderr)
+        sys.stderr.write("ERROR: Data dir %s not found.\n" % (DATA_DIR))
         sys.exit(1)
 
     if not "KUVATFI_PASSWORD" in os.environ:

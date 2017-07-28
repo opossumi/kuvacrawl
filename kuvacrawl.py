@@ -30,7 +30,7 @@ import argparse
 import json
 import os
 from os import listdir, walk
-from os.path import basename, isfile, join
+from os.path import basename, isdir, isfile, join
 import requests
 import shutil
 import sys
@@ -205,8 +205,12 @@ if __name__ == '__main__':
     parser.add_argument('--path', nargs=1, type=str, help='Data path')
     args = parser.parse_args()
 
-    if "path" in args:
+    if args.path:
         DATA_DIR = args.path[0]
+
+    if not isdir(DATA_DIR):
+        print ("ERROR: Data dir %s not found." % (DATA_DIR), file=sys.stderr)
+        sys.exit(1)
 
     if not "KUVATFI_PASSWORD" in os.environ:
         print ("WARNING! Pasword not supplied, protected folders won't be downloaded.")

@@ -43,12 +43,18 @@ FOLDER_TREE = BASE_URL+"/?type=getFolderTree"
 FILE_LIST = BASE_URL+"/?type=getFileListJSON"
 DATA_DIR = "data"
 
-def RateLimited(maxPerSecond):
-    minInterval = 1.0 / float(maxPerSecond)
+def RateLimited(limit=None):
     def decorate(func):
         lastTimeCalled = [0.0]
         def rateLimitedFunction(*args,**kargs):
             elapsed = time.clock() - lastTimeCalled[0]
+            maxPerSecond = limit
+            if not maxPerSecond:
+                if hasattr(args[0], 'ratelimit'):
+                    maxPerSecond = getattr(args[0], 'ratelimit')
+                else:
+                    maxPerSecond = 1 # Default value
+            minInterval = 1.0 / float(maxPerSecond)
             leftToWait = minInterval - elapsed
             if leftToWait>0:
                 time.sleep(leftToWait)
@@ -81,7 +87,9 @@ def load_jsonfile(fname):
         return json.loads(data)
 
 class KuvaCrawler(object):
-    def __init__(self):
+    def __init__(self, ratelimit=None):
+        if ratelimit:
+            self.ratelimit = ratelimit
         self.s = requests.Session()
         self.s.headers.update({
             "User-Agent": "Teidän API on paska"
@@ -110,7 +118,7 @@ class KuvaCrawler(object):
         print ("uid:", self.uid)
         print ("csid:", self.csid)
 
-    @RateLimited(1)
+    @RateLimited()
     def fetch_picture(self, filepath, fileurl):
         r = self.s.get(fileurl, stream=True)
         if r.status_code == 200:
@@ -133,7 +141,7 @@ class KuvaCrawler(object):
         self.fetch_picture(filepath, fileurl)
         return True
     
-    @RateLimited(1)
+    @RateLimited()
     def crawl_folder(self, folder, fdata):
         print ("Crawling", folder)
 
@@ -164,7 +172,7 @@ class KuvaCrawler(object):
                 os.remove(fname)
             print ("Removed", fname)
 
-    @RateLimited(1)
+    @RateLimited()
     def authenticate_folder(self, folder, fdata):
         if "KUVATFI_PASSWORD" in os.environ:
             print ("Authenticating folder", folder)
@@ -232,6 +240,7 @@ class KuvaCrawler(object):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Downloads pictures from a kuvat.fi gallery.')
     parser.add_argument('--path', nargs=1, type=str, help='Data path')
+    parser.add_argument('--ratelimit', type=float, help='Maximum requests per second')
     args = parser.parse_args()
 
     if args.path:
@@ -243,5 +252,5 @@ if __name__ == '__main__':
 
     if not "KUVATFI_PASSWORD" in os.environ:
         print ("WARNING! Pasword not supplied, protected folders won't be downloaded.")
-    crawler = KuvaCrawler()
+    crawler = KuvaCrawler(ratelimit=args.ratelimit)
     crawler.crawl()

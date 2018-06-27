@@ -32,6 +32,7 @@ import json
 import os
 from os import listdir, walk
 from os.path import basename, isdir, isfile, join
+import re
 import requests
 import shutil
 import sys
@@ -82,7 +83,32 @@ def load_jsonfile(fname):
 class KuvaCrawler(object):
     def __init__(self):
         self.s = requests.Session()
+        self.s.headers.update({
+            "User-Agent": "Teidän API on paska"
+            })
         r = self.s.get(BASE_URL+"/kuvat/")
+
+        m = re.search(r'var sid = \'(.+)\';', r.text)
+        if not m:
+            print ("Variable sid not found")
+            sys.exit(1)
+        self.sid = m.group(1)
+
+        m = re.search(r'var uid = (\d+);', r.text)
+        if not m:
+            print ("Variable uid not found")
+            sys.exit(1)
+        self.uid = m.group(1)
+
+        m = re.search(r'var csid = \'(.+)\';', r.text)
+        if not m:
+            print ("Variable csid not found")
+            sys.exit(1)
+        self.csid = m.group(1)
+
+        print ("sid:", self.sid)
+        print ("uid:", self.uid)
+        print ("csid:", self.csid)
 
     @RateLimited(1)
     def fetch_picture(self, filepath, fileurl):
@@ -145,7 +171,9 @@ class KuvaCrawler(object):
             r = self.s.get(BASE_URL+"/?q=folderpassword&page=&id=%s&folderpassword=%s" % (fdata["id"], os.environ["KUVATFI_PASSWORD"]))
 
     def crawl(self):
-        r = self.s.get(FOLDER_TREE)
+        # Pass user session data to get a 'auth_local_session' cookie
+        # Folder password authentication doesn't work without this cookie
+        r = self.s.post(FOLDER_TREE, data={'usersession': self.csid})
         rawdata = r.text
         data = json.loads(rawdata)
 

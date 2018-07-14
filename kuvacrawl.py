@@ -60,7 +60,7 @@ def RateLimited(limit=None):
     return decorate
 
 class KuvaCrawler(object):
-    def __init__(self, datadir, site, ratelimit=None):
+    def __init__(self, datadir, site, ratelimit=None, noremove=False):
         self.site = site
         self.datadir = os.path.join(datadir, self.site)
         if not os.path.exists(self.datadir):
@@ -70,6 +70,7 @@ class KuvaCrawler(object):
         self.file_list_url = self.base_url+"/?type=getFileListJSON"
         if ratelimit:
             self.ratelimit = ratelimit
+        self.noremove = noremove
         self.s = requests.Session()
         self.s.headers.update({
             "User-Agent": "Teidän API on paska"
@@ -143,8 +144,8 @@ class KuvaCrawler(object):
             if (fdata["nodown"]):
                 # Fallback when downloading original images is not allowed
                 size = message['url']['sizes'][-1:][0]
-            if self.crawl_picture(message, size=size):
-                images.append(message["filepath"])
+            self.crawl_picture(message, size=size)
+            images.append(message["filepath"])
     
         dname = self.moglify(folder)
         files = [f for f in listdir(dname) if isfile(join(dname, f))]
@@ -157,8 +158,11 @@ class KuvaCrawler(object):
         for f in files:
             fname = join(dname, f)
             if isfile(fname):
-                os.remove(fname)
-            print ("Removed", fname)
+                if not self.noremove:
+                    os.remove(fname)
+                    print ("Removed", fname)
+                else:
+                    print ("Keeping removed pic", fname)
 
     @RateLimited()
     def authenticate_folder(self, folder, fdata):
@@ -221,9 +225,13 @@ class KuvaCrawler(object):
             if dname in f:
                 f.remove(dname)
     
-        for dname in f:
-            shutil.rmtree(dname)
-            print ("Removed", dname)
+        if not self.noremove:
+            for dname in f:
+                if not self.noremove:
+                    shutil.rmtree(dname)
+                    print ("Removed", dname)
+                else:
+                    print ("Keeping", dname)
 
     def moglify(self, fname):
         if fname[0] == '/':
@@ -252,6 +260,7 @@ if __name__ == '__main__':
     parser.add_argument('--path', default='data', type=str, help='Data path')
     parser.add_argument('--ratelimit', type=float, help='Maximum requests per second')
     parser.add_argument('--site', default='demo', type=str, help='https://[SITE].kuvat.fi')
+    parser.add_argument('--noremove', action='store_true')
     args = parser.parse_args()
 
     if not isdir(args.path):
@@ -262,5 +271,6 @@ if __name__ == '__main__':
         print ("WARNING! Pasword not supplied, protected folders won't be downloaded.")
     crawler = KuvaCrawler(datadir=args.path,
             site=args.site,
-            ratelimit=args.ratelimit)
+            ratelimit=args.ratelimit,
+            noremove=args.noremove)
     crawler.crawl()
